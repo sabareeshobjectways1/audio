@@ -38,7 +38,7 @@ def audio_player_component(audio_bytes: bytes):
     """
     b64_audio = base64.b64encode(audio_bytes).decode()
     component_html = f"""
-    <div id="waveform-container" style="border: 1px solid #ddd; border-radius: 8px; padding: 20px; width: 100%;">
+    <div id="waveform-container" style="border: 1px solid #ddd; border-radius: 8px; padding: 20px; width: 90%;">
         <div id="waveform"></div>
         <div style="margin-top: 15px; display: flex; align-items: center; gap: 20px;">
             <button id="playBtn" style="padding: 8px 16px; border-radius: 5px; border: 1px solid #ccc; cursor: pointer;">Play</button>
@@ -300,3 +300,4 @@ elif st.session_state.page_state == 'annotation':
         st.session_state.page_state = 'metadata_input'
         st.rerun()
     annotation_page()
+

@@ -1,4 +1,3 @@
-
 import streamlit as st
 import json
 import uuid
@@ -30,7 +29,7 @@ def get_json_download_link(data, filename="annotated_data.json"):
     return f'<a href="data:file/json;base64,{b64}" download="{filename}">Download JSON File</a>'
 
 # =====================================================================================
-# CUSTOM AUDIO PLAYER COMPONENT (UPDATED)
+# CUSTOM AUDIO PLAYER COMPONENT (Unchanged)
 # =====================================================================================
 def audio_player_component(audio_bytes: bytes):
     """
@@ -88,7 +87,6 @@ def audio_player_component(audio_bytes: bytes):
             timeDisplay.textContent = currentTime.toFixed(3);
         }});
         
-        // ### THIS IS THE FIX ###
         // Update time display on any interaction (click, drag, etc.) for immediate feedback
         wavesurfer.on('interaction', function() {{
             let currentTime = wavesurfer.getCurrentTime();
@@ -170,12 +168,11 @@ def metadata_form():
             st.rerun()
 
 # =====================================================================================
-# PAGE 2: AUDIO ANNOTATION AND JSON EDITOR (Unchanged)
+# PAGE 2: AUDIO ANNOTATION AND JSON EDITOR (MODIFIED)
 # =====================================================================================
 def annotation_page():
     st.title("Step 2: Audio Annotation")
     
-    # CSS fix to make the component container full-width
     st.markdown("""
         <style>
         div[data-testid="stElementContainer"]:has(iframe[title^="st.iframe"]) {
@@ -205,34 +202,46 @@ def annotation_page():
 
             primary_type = st.selectbox("Primary Type", ["Speech", "Noise", "Music", "Silence"], index=0)
             
-            if primary_type == "Speech":
-                transcription = st.text_area("Transcription Content", "")
-                loudness_level = st.selectbox("Loudness Level", ["Normal", "Quiet", "Loud"], index=0)
-                speaker_options = {s['speakerId']: f"Speaker {i+1}" for i, s in enumerate(st.session_state.speakers)}
+            # --- CHANGE 1: UI elements are now always visible ---
+            transcription = st.text_area("Transcription Content", "")
+            loudness_level = st.selectbox("Loudness Level", ["Normal", "Quiet", "Loud"], index=0)
+
+            # Ensure speakers exist before showing the dropdown
+            if st.session_state.speakers:
+                speaker_options = {s['speakerId']: f"Speaker {i+1} ({s.get('speakerRole', 'N/A')})" for i, s in enumerate(st.session_state.speakers)}
                 selected_speaker_id = st.selectbox("Speaker", options=list(speaker_options.keys()), format_func=lambda x: speaker_options[x])
             else:
-                transcription, loudness_level, selected_speaker_id = "", "Normal", None
+                st.warning("No speakers defined. Please add speakers in the metadata step.")
+                selected_speaker_id = None
 
             add_segment_button = st.form_submit_button("Add Segment")
 
+            # --- CHANGE 2: Data from all fields is now always added to the segment ---
             if add_segment_button:
-                new_segment = { "start": start_time, "end": end_time, "segmentId": str(uuid.uuid4()), "primaryType": primary_type }
-                if primary_type == "Speech":
-                    new_segment.update({
+                if selected_speaker_id is None:
+                    st.error("Cannot add segment. Please define at least one speaker in the metadata.")
+                else:
+                    new_segment = {
+                        "start": start_time,
+                        "end": end_time,
+                        "segmentId": str(uuid.uuid4()),
+                        "primaryType": primary_type,
                         "loudnessLevel": loudness_level,
                         "language": st.session_state.metadata['languageInfo']['speakerDominantVarieties'][0]['languageLocale'],
                         "speakerId": selected_speaker_id,
                         "transcriptionData": {"content": transcription}
-                    })
-                else:
-                     new_segment.update({"loudnessLevel": "Normal"})
-                st.session_state.segments.append(new_segment)
-                st.success("Segment added successfully!")
-                st.rerun()
+                    }
+                    st.session_state.segments.append(new_segment)
+                    st.success("Segment added successfully!")
+                    st.rerun()
 
     if st.session_state.segments:
         st.subheader("Annotated Segments")
         st.markdown("You can delete segments here. For detailed edits, use the JSON editor below.")
+        
+        sorted_segments = sorted(st.session_state.segments, key=lambda x: float(x.get('start', 0)))
+        st.session_state.segments = sorted_segments
+
         for i, seg in enumerate(st.session_state.segments[:]):
             with st.expander(f"Segment {i+1}: {seg['start']} - {seg['end']} ({seg['primaryType']})"):
                 st.json(seg)
